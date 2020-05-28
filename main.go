@@ -1,18 +1,25 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
+	"html/template"
+	"log"
+	"net/http"
+	"strconv"
 
-	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 /*Planet ... Saves planet basic data*/
 type Planet struct {
-	id      uuid.UUID
-	name    string
-	climate string //TODO: change type
-	terrain string //TODO: change type
+	ID      int64  `json:"id"`
+	Name    string `json:"name"`
+	Climate string `json:"climate"`
+	Terrain string `json:"terrain"`
 }
+
+//TODO: Remove this global var. Its here to simulate DB
+var planets []Planet
 
 func (planet Planet) movieAppearenceCount() int {
 	// Get data from https://swapi.dev/api/planets
@@ -22,16 +29,15 @@ func (planet Planet) movieAppearenceCount() int {
 
 }
 
-func createPlanet(name string, climate string, terrain string) Planet {
+func createPlanet(id int64, name string, climate string, terrain string) Planet {
 	// Create planet of type Planet
-	id := uuid.New()
-	planet := Planet{id: id, name: name, climate: climate, terrain: terrain}
+	planet := Planet{ID: id, Name: name, Climate: climate, Terrain: terrain}
 
 	// TODO: Adds it to database
 	return planet
 }
 
-func ListPlanets() []Planet {
+func getPlanets() []Planet {
 	// Retrieve all planets from database and returns it
 	var planets []Planet
 	//planets := GetPlanetsFromDB()
@@ -50,27 +56,68 @@ func SearchByName(name string) Planet {
 	return data
 }
 
-func SearchByID(id uuid.UUID) Planet {
+func SearchByID(id int64) Planet {
 	// Acess method from db given id and returns Planet.
 	var data Planet
 
 	//data = db.searchByID(id)
 
+	// TODO: ADD try/catch para o caso de não encontrar o id
+	data = planets[id]
+
 	return data
 }
 
-func RemovePlanet(id uuid.UUID) bool {
+func RemovePlanet(id int64) bool {
 	// Removes a planet by id. If planet id not found, raises exception
 	removed := false
 
 	return removed
 }
 
+/*API functions*/
+
+func APIHome(writer http.ResponseWriter, r *http.Request) {
+	homeTemplate, _ := template.ParseFiles("home.html")
+	homeTemplate.ExecuteTemplate(writer, "home.html", nil)
+}
+
+func ListPlanets(writer http.ResponseWriter, request *http.Request) {
+	json.NewEncoder(writer).Encode(planets)
+}
+
+func GetByID(writer http.ResponseWriter, request *http.Request) {
+	variables := mux.Vars(request)
+	id := variables["id"]
+	idAsInt, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		log.Fatal("ID", id, "is not of type integer")
+	}
+	data := SearchByID(idAsInt)
+
+	json.NewEncoder(writer).Encode(data)
+
+}
+
+func handleRequests() {
+	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/", APIHome)
+	router.HandleFunc("/planets", ListPlanets)
+	router.HandleFunc("/planet/{id}", GetByID)
+
+	log.Fatal(http.ListenAndServe(":5555", router))
+}
+
 func main() {
 
-	createPlanet("Tatooine", "sunnie", "acid")
+	planets = []Planet{
+		Planet{ID: 0, Name: "Tatooine", Climate: "hot", Terrain: "sand"},
+		Planet{ID: 1, Name: "Earth", Climate: "sunnie", Terrain: "plain"},
+	}
 
-	planets := ListPlanets()
+	//	planets := ListPlanets()
 
-	fmt.Println(planets)
+	//	fmt.Println(planets)
+
+	handleRequests()
 }
