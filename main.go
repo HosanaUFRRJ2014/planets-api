@@ -198,8 +198,9 @@ func handleRequests() {
 	router.HandleFunc("/planet", CreateNewPlanet).Methods("POST")
 	router.HandleFunc("/planet/id/{id}", GetByID)
 	router.HandleFunc("/planet/name/{name}", GetByName)
-	router.HandleFunc("/planet/delete/{id}", DeletePlanetByID)
+	router.HandleFunc("/planet/{id}", DeletePlanetByID).Methods("DELETE")
 
+	log.Println("Listening at port 5555...")
 	log.Fatal(http.ListenAndServe(":5555", router))
 }
 
