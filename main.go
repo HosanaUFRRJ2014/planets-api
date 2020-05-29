@@ -123,7 +123,11 @@ func APIHome(writer http.ResponseWriter, request *http.Request) {
 }
 
 func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
-	body, _ := ioutil.ReadAll(request.Body)
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		log.Fatal("Could not read body for request")
+		panic(err)
+	}
 
 	var newPlanet Planet
 
@@ -134,6 +138,13 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 	// TODO: Return new id and new created object?
 	response := map[string]bool{"created": created}
 
+	writer.Header().Set("Content-Type", "application/json; charset=UTF-8")
+
+	if created {
+		writer.WriteHeader(http.StatusCreated)
+	} else {
+		writer.WriteHeader(http.StatusBadRequest)
+	}
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "\t")
 	encoder.Encode(response)
@@ -183,8 +194,8 @@ func DeletePlanetByID(writer http.ResponseWriter, request *http.Request) {
 func handleRequests() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", APIHome)
-	router.HandleFunc("/planet", CreateNewPlanet).Methods("POST")
 	router.HandleFunc("/planets", ListPlanets)
+	router.HandleFunc("/planet", CreateNewPlanet).Methods("POST")
 	router.HandleFunc("/planet/id/{id}", GetByID)
 	router.HandleFunc("/planet/name/{name}", GetByName)
 	router.HandleFunc("/planet/delete/{id}", DeletePlanetByID)
