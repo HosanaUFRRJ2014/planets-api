@@ -11,6 +11,8 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/gorilla/mux"
 	"github.com/scylladb/gocqlx"
+	"github.com/scylladb/gocqlx/qb"
+	"github.com/scylladb/gocqlx/table"
 )
 
 /*Planet ... Saves planet basic data*/
@@ -50,8 +52,26 @@ func dbConnect() gocqlx.Session {
 	return _session
 }
 
-var planets []Planet
+func selectPlanetByParam(paramName string, paramValue ...interface{}) []Planet {
+	if len(paramValue) != 1 {
+		panic("Please, inform just one parameter for selectPlanetByParam")
+	}
+	var planets []Planet
+	value := paramValue[0]
 
+	stmt, stmtError := planetTable.Select()
+	queryMap := qb.M{paramName: value}
+	query := session.Query(stmt, stmtError).BindMap(queryMap)
+	execError := query.SelectRelease(&planets)
+	if execError != nil {
+		log.Fatal(execError)
+		log.Fatal("Error while retrieving planet by", paramName)
+	}
+
+	return planets
+}
+
+// **
 func (planet Planet) movieAppearenceCount() int {
 	// Get data from https://swapi.dev/api/planets
 	// count movies appearence and return it
@@ -87,34 +107,22 @@ func getAllPlanets() []Planet {
 	return planets
 }
 
-func SearchByName(name string) Planet {
+func SearchByParam(paramName string, value ...interface{}) []Planet {
 	// Acess method from db given name and returns Planet. Case insensitive
-	var data Planet
+	var data []Planet
+	data = selectPlanetByParam(paramName, value)
 
 	//data = db.searchByName(name)
 
 	// TODO: ADD try/catch para o caso de não encontrar o id
 	// TODO: Add case insensitive search
 	// TODO: Treat response in case its not found
-	for _, planet := range planets {
-		if planet.Name == name {
-			data = planet
-			break
-		}
-	}
-
-	return data
-}
-
-func SearchByID(id int64) Planet {
-	// Acess method from db given id and returns Planet.
-	var data Planet
-
-	//data = db.searchByID(id)
-
-	// TODO: ADD try/catch para o caso de não encontrar o id
-	// TODO: Treat response in case its not found
-	data = planets[id]
+	// for _, planet := range planets {
+	// 	if planet.Name == name {
+	// 		data = planet
+	// 		break
+	// 	}
+	// }
 
 	return data
 }
@@ -189,9 +197,10 @@ func ListPlanets(writer http.ResponseWriter, request *http.Request) {
 }
 
 func GetByID(writer http.ResponseWriter, request *http.Request) {
-	id := getByAttribute("id", request)
+	param := "id"
+	id := getByAttribute(param, request)
 	idAsInt := parseIDToInt64(id)
-	data := SearchByID(idAsInt)
+	data := SearchByParam(param, idAsInt)
 
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "\t")
@@ -200,8 +209,9 @@ func GetByID(writer http.ResponseWriter, request *http.Request) {
 }
 
 func GetByName(writer http.ResponseWriter, request *http.Request) {
-	name := getByAttribute("name", request)
-	data := SearchByName(name)
+	param := "name"
+	name := getByAttribute(param, request)
+	data := SearchByParam(param, name)
 
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "\t")
