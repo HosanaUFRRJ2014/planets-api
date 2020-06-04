@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gocql/gocql"
 	"github.com/gorilla/mux"
+	"github.com/scylladb/gocqlx"
 )
 
 /*Planet ... Saves planet basic data*/
@@ -19,7 +21,35 @@ type Planet struct {
 	Terrain string `json:"terrain"`
 }
 
-//TODO: Remove this global var. Its here to simulate DB
+//TODO: Remove these global vars.
+
+var planetMetadata = table.Metadata{
+	Name:    "planet",
+	Columns: []string{"ID", "Name", "Climate", "Terrain"},
+	SortKey: []string{"id"},
+}
+
+var planetTable = table.New(planetMetadata)
+
+var session gocqlx.Session
+
+// Database functions
+
+func dbConnect() gocqlx.Session {
+	cluster := gocql.NewCluster("192.168.1.1", "192.168.1.2", "192.168.1.3")
+	cluster.Keyspace = "planet"
+	cluster.Consistency = gocql.Quorum
+	_session, error := gocqlx.WrapSession(
+		cluster.CreateSession(),
+	)
+
+	if error != nil {
+		log.Fatal(error)
+		log.Fatal("Error while trying to connect to database")
+	}
+	return _session
+}
+
 var planets []Planet
 
 func (planet Planet) movieAppearenceCount() int {
@@ -205,6 +235,9 @@ func handleRequests() {
 }
 
 func main() {
+
+	session = dbConnect()
+	defer session.Close()
 
 	planets = []Planet{
 		Planet{ID: 0, Name: "Tatooine", Climate: "hot", Terrain: "sand"},
