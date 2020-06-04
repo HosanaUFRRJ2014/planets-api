@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gocql/gocql"
 	"github.com/gorilla/mux"
@@ -139,6 +140,17 @@ func RemovePlanet(id int64) bool {
 }
 
 /* API Utils*/
+
+func capitalizeName(name string) string {
+	var capitalizedName string
+
+	capitalizedName = strings.ToTitle(
+		strings.ToLower(name),
+	)
+
+	return capitalizedName
+}
+
 func getByAttribute(attributeName string, request *http.Request) string {
 	variables := mux.Vars(request)
 	return variables[attributeName]
@@ -170,6 +182,8 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 	var newPlanet Planet
 
 	json.Unmarshal(body, &newPlanet)
+
+	newPlanet.Name = capitalizeName(newPlanet.Name)
 
 	created := addNewPlanet(newPlanet)
 
@@ -211,7 +225,8 @@ func GetByID(writer http.ResponseWriter, request *http.Request) {
 func GetByName(writer http.ResponseWriter, request *http.Request) {
 	param := "name"
 	name := getByAttribute(param, request)
-	data := SearchByParam(param, name)
+	capitalizedName := capitalizeName(name)
+	data := SearchByParam(param, capitalizedName)
 
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "\t")
