@@ -16,7 +16,7 @@ import (
 	"github.com/scylladb/gocqlx/table"
 )
 
-/*Planet ... Saves planet basic data*/
+/*Planet ... Saves planet data*/
 type Planet struct {
 	ID      int64  `json:"id"`
 	Name    string `json:"name"`
@@ -25,6 +25,7 @@ type Planet struct {
 }
 
 //TODO: Remove these global vars.
+//var planets []Planet
 
 var planetMetadata = table.Metadata{
 	Name:    "planet",
@@ -36,10 +37,10 @@ var planetTable = table.New(planetMetadata)
 
 var session gocqlx.Session
 
-// Database functions
+/* Database functions */
 
 func dbConnect() gocqlx.Session {
-	cluster := gocql.NewCluster("192.168.1.1", "192.168.1.2", "192.168.1.3")
+	cluster := gocql.NewCluster("127.0.0.1")
 	cluster.Keyspace = "planet"
 	cluster.Consistency = gocql.Quorum
 	_session, error := gocqlx.WrapSession(
@@ -53,9 +54,24 @@ func dbConnect() gocqlx.Session {
 	return _session
 }
 
-func selectPlanetByParam(paramName string, paramValue ...interface{}) []Planet {
+/*InsertPlanet adds a new planet to the database. */
+func InsertPlanet(newPlanet Planet) bool {
+	var created bool = true
+
+	stmt, stmtError := planetTable.Insert()
+	query := session.Query(stmt, stmtError).BindStruct(newPlanet)
+	if err := query.ExecRelease(); err != nil {
+		created = false
+		log.Fatal(err)
+		log.Fatal("Error while saving planet:", newPlanet.Name)
+	}
+	return created
+}
+
+/*SelectPlanetByParam gets planets from database by paramName id or name */
+func SelectPlanetByParam(paramName string, paramValue ...interface{}) []Planet {
 	if len(paramValue) != 1 {
-		panic("Please, inform just one parameter for selectPlanetByParam")
+		panic("Please, inform just one parameter for SelectPlanetByParam")
 	}
 	var planets []Planet
 	value := paramValue[0]
@@ -66,10 +82,25 @@ func selectPlanetByParam(paramName string, paramValue ...interface{}) []Planet {
 	execError := query.SelectRelease(&planets)
 	if execError != nil {
 		log.Fatal(execError)
-		log.Fatal("Error while retrieving planet by", paramName)
+		log.Fatal("Error while retrieving planet by", paramName, "=", paramValue)
 	}
 
 	return planets
+}
+
+/*DeletePlanetByParam delets a planet from database, informing a name or id*/
+func DeletePlanetByParam(paramName string, paramValue ...interface{}) bool {
+	var deleted bool = true
+
+	stmt, stmtError := planetTable.Delete()
+	queryMap := qb.M{paramName: paramValue}
+	query := session.Query(stmt, stmtError).BindStruct(queryMap)
+	if err := query.ExecRelease(); err != nil {
+		deleted = false
+		log.Fatal(err)
+		log.Fatal("Error while deleting planet with", paramName, "=", paramValue)
+	}
+	return deleted
 }
 
 // **
@@ -81,26 +112,18 @@ func (planet Planet) movieAppearenceCount() int {
 
 }
 
-func createPlanet(id int64, name string, climate string, terrain string) Planet {
-	// Create planet of type Planet
-	planet := Planet{ID: id, Name: name, Climate: climate, Terrain: terrain}
-
-	// TODO: Adds it to database
-	return planet
-}
+/* Model Functions */
 
 func addNewPlanet(newPlanet Planet) bool {
-	created := false
-
-	// TODO: Add it do database
-	planets = append(planets, newPlanet)
+	//TODO: Check if planet is already in database
+	created := InsertPlanet(newPlanet)
 
 	return created
 }
 
 func getAllPlanets() []Planet {
 	// Retrieve all planets from database and returns it
-	//var planets []Planet
+	var planets []Planet
 	//planets := GetPlanetsFromDB()
 
 	// Para cada planetadeve retornar também a quantidade de aparições em filmes
@@ -111,27 +134,15 @@ func getAllPlanets() []Planet {
 func SearchByParam(paramName string, value ...interface{}) []Planet {
 	// Acess method from db given name and returns Planet. Case insensitive
 	var data []Planet
-	data = selectPlanetByParam(paramName, value)
-
-	//data = db.searchByName(name)
-
-	// TODO: ADD try/catch para o caso de não encontrar o id
-	// TODO: Add case insensitive search
-	// TODO: Treat response in case its not found
-	// for _, planet := range planets {
-	// 	if planet.Name == name {
-	// 		data = planet
-	// 		break
-	// 	}
-	// }
+	data = SelectPlanetByParam(paramName, value)
 
 	return data
 }
 
-func RemovePlanet(id int64) bool {
-	// Removes a planet by id. If planet id not found, raises exception
+func RemovePlanetByParam(paramName string, value ...interface{}) bool {
+	// Removes a planet by id or name. If planet id not found, raises exception
 	//var planet Planet
-	removed := false
+	removed := DeletePlanetByParam(paramName, value)
 
 	// TODO: Remove planet in DB
 	//returns it?
@@ -180,11 +191,8 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	var newPlanet Planet
-
 	json.Unmarshal(body, &newPlanet)
-
 	newPlanet.Name = capitalizeName(newPlanet.Name)
-
 	created := addNewPlanet(newPlanet)
 
 	// TODO: Return new id and new created object?
@@ -233,11 +241,25 @@ func GetByName(writer http.ResponseWriter, request *http.Request) {
 	encoder.Encode(data)
 }
 
+func DeletePlanetByName(writer http.ResponseWriter, request *http.Request) {
+	paramName := "name"
+	name := getByAttribute(paramName, request)
+	capitalizedName := capitalizeName(name)
+	deleted := RemovePlanetByParam(paramName, capitalizedName)
+
+	response := map[string]bool{"deleted": deleted}
+
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "\t")
+	encoder.Encode(response)
+}
+
 func DeletePlanetByID(writer http.ResponseWriter, request *http.Request) {
-	id := getByAttribute("id", request)
+	paramName := "id"
+	id := getByAttribute(paramName, request)
 	idAsInt := parseIDToInt64(id)
 
-	deleted := RemovePlanet(idAsInt)
+	deleted := RemovePlanetByParam(paramName, idAsInt)
 
 	response := map[string]bool{"deleted": deleted}
 
@@ -264,14 +286,19 @@ func main() {
 	session = dbConnect()
 	defer session.Close()
 
-	planets = []Planet{
-		Planet{ID: 0, Name: "Tatooine", Climate: "hot", Terrain: "sand"},
-		Planet{ID: 1, Name: "Earth", Climate: "sunnie", Terrain: "rocks"},
-	}
+	// planets = []Planet{
+	// 	Planet{ID: 0, Name: "Tatooine", Climate: "hot", Terrain: "sand"},
+	// 	Planet{ID: 1, Name: "Earth", Climate: "sunnie", Terrain: "rocks"},
+	// }
 
 	//	planets := ListPlanets()
 
 	//	fmt.Println(planets)
+
+	//p := Planet{3, "Mars", "hot", "rocks"}
+	//addNewPlanet(p)
+
+	//fmt.Println(planets)
 
 	handleRequests()
 }
