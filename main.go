@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
 	"io/ioutil"
@@ -8,12 +9,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/gocql/gocql"
 	"github.com/gorilla/mux"
-	"github.com/scylladb/gocqlx"
-	"github.com/scylladb/gocqlx/qb"
-	"github.com/scylladb/gocqlx/table"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 /*Planet ... Saves planet data*/
@@ -24,43 +26,60 @@ type Planet struct {
 	Terrain string `json:"terrain"`
 }
 
-//TODO: Remove these global vars.
-//var planets []Planet
-
-var planetMetadata = table.Metadata{
-	Name:    "planet",
-	Columns: []string{"ID", "Name", "Climate", "Terrain"},
-	SortKey: []string{"id"},
-}
-
-var planetTable = table.New(planetMetadata)
-
-var session gocqlx.Session
+// TODO: Remove Global Vars
+var collection *mongo.Collection
 
 /* Database functions */
 
-func dbConnect() gocqlx.Session {
-	cluster := gocql.NewCluster("127.0.0.1")
-	cluster.Keyspace = "planet"
-	cluster.Consistency = gocql.Quorum
-	_session, error := gocqlx.WrapSession(
-		cluster.CreateSession(),
+func makeURI(host, port string) string {
+	driverName := "mongodb"
+	uri := driverName + "://" + host + ":" + port
+
+	return uri
+}
+
+func dbConnect(databaseName, collectionName string) (*mongo.Client, *mongo.Collection) {
+	var (
+		host string = "localhost"
+		port string = "27017"
 	)
+
+	uri := makeURI(host, port)
+	var clientOptions options.ClientOptions
+	client, error := mongo.NewClient(clientOptions.ApplyURI(uri))
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	error = client.Connect(ctx)
 
 	if error != nil {
 		log.Fatal(error)
-		log.Fatal("Error while trying to connect to database")
 	}
-	return _session
+
+	collection := client.Database(databaseName).Collection(collectionName)
+	log.Print(
+		"Connected to Database: ", databaseName,
+		", collection: ", collectionName,
+		" at ", uri,
+	)
+
+	return client, collection
+
+}
+
+func dbDisconnect(client *mongo.Client) {
+	error := client.Disconnect(context.TODO())
+
+	if error != nil {
+		log.Fatal(error)
+	}
+	log.Print("Disconnecting from DB.")
 }
 
 /*InsertPlanet adds a new planet to the database. */
 func InsertPlanet(newPlanet Planet) bool {
-	var created bool = true
-
-	stmt, stmtError := planetTable.Insert()
-	query := session.Query(stmt, stmtError).BindStruct(newPlanet)
-	if err := query.ExecRelease(); err != nil {
+	created := true
+	_, err := collection.InsertOne(context.TODO(), newPlanet)
+	//created := result.get("InsertedID")
+	if err != nil {
 		created = false
 		log.Fatal(err)
 		log.Fatal("Error while saving planet:", newPlanet.Name)
@@ -69,33 +88,34 @@ func InsertPlanet(newPlanet Planet) bool {
 }
 
 /*SelectPlanetByParam gets planets from database by paramName id or name */
-func SelectPlanetByParam(paramName string, paramValue ...interface{}) []Planet {
+func SelectPlanetByParam(paramName string, paramValue ...interface{}) Planet {
 	if len(paramValue) != 1 {
 		panic("Please, inform just one parameter for SelectPlanetByParam")
 	}
-	var planets []Planet
+	var planet Planet
 	value := paramValue[0]
+	filter := bson.D{{paramName, value}}
 
-	stmt, stmtError := planetTable.Select()
-	queryMap := qb.M{paramName: value}
-	query := session.Query(stmt, stmtError).BindMap(queryMap)
-	execError := query.SelectRelease(&planets)
-	if execError != nil {
-		log.Fatal(execError)
+	err := collection.FindOne(context.TODO(), filter).Decode(&planet)
+	if err != nil {
+		log.Fatal(err)
 		log.Fatal("Error while retrieving planet by", paramName, "=", paramValue)
 	}
 
-	return planets
+	return planet
 }
 
 /*DeletePlanetByParam delets a planet from database, informing a name or id*/
 func DeletePlanetByParam(paramName string, paramValue ...interface{}) bool {
-	var deleted bool = true
+	if len(paramValue) != 1 {
+		panic("Please, inform just one parameter for SelectPlanetByParam")
+	}
+	deleted := true
+	value := paramValue[0]
+	filter := bson.D{{paramName, value}}
 
-	stmt, stmtError := planetTable.Delete()
-	queryMap := qb.M{paramName: paramValue}
-	query := session.Query(stmt, stmtError).BindStruct(queryMap)
-	if err := query.ExecRelease(); err != nil {
+	_, err := collection.DeleteOne(context.TODO(), filter)
+	if err != nil {
 		deleted = false
 		log.Fatal(err)
 		log.Fatal("Error while deleting planet with", paramName, "=", paramValue)
@@ -127,13 +147,15 @@ func getAllPlanets() []Planet {
 	//planets := GetPlanetsFromDB()
 
 	// Para cada planetadeve retornar também a quantidade de aparições em filmes
-
+	panic("getAllPlanets not implemented yet")
 	return planets
 }
 
-func SearchByParam(paramName string, value ...interface{}) []Planet {
+//func SearchByParam(paramName string, value ...interface{}) []Planet {
+func SearchByParam(paramName string, value ...interface{}) Planet {
 	// Acess method from db given name and returns Planet. Case insensitive
-	var data []Planet
+	//var data []Planet
+	var data Planet
 	data = SelectPlanetByParam(paramName, value)
 
 	return data
@@ -143,9 +165,7 @@ func RemovePlanetByParam(paramName string, value ...interface{}) bool {
 	// Removes a planet by id or name. If planet id not found, raises exception
 	//var planet Planet
 	removed := DeletePlanetByParam(paramName, value)
-
-	// TODO: Remove planet in DB
-	//returns it?
+	//returns removed planet?
 
 	return removed
 }
@@ -283,8 +303,14 @@ func handleRequests() {
 
 func main() {
 
-	session = dbConnect()
-	defer session.Close()
+	var (
+		databaseName   string = "apidb"
+		collectionName string = "planets"
+	)
+
+	var client *mongo.Client
+	client, collection = dbConnect(databaseName, collectionName)
+	defer dbDisconnect(client)
 
 	// planets = []Planet{
 	// 	Planet{ID: 0, Name: "Tatooine", Climate: "hot", Terrain: "sand"},
