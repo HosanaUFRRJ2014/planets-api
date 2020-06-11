@@ -38,12 +38,7 @@ func makeURI(host, port string) string {
 	return uri
 }
 
-func dbConnect(databaseName, collectionName string) (*mongo.Client, *mongo.Collection) {
-	var (
-		host string = "localhost"
-		port string = "27017"
-	)
-
+func mongoDBConnect(host, port, databaseName, collectionName string) (*mongo.Client, *mongo.Collection) {
 	uri := makeURI(host, port)
 	var clientOptions options.ClientOptions
 	client, error := mongo.NewClient(clientOptions.ApplyURI(uri))
@@ -65,7 +60,7 @@ func dbConnect(databaseName, collectionName string) (*mongo.Client, *mongo.Colle
 
 }
 
-func dbDisconnect(client *mongo.Client) {
+func mongoDBDisconnect(client *mongo.Client) {
 	error := client.Disconnect(context.TODO())
 
 	if error != nil {
@@ -304,13 +299,15 @@ func handleRequests() {
 func main() {
 
 	var (
+		host           string = "localhost"
+		port           string = "27017"
 		databaseName   string = "apidb"
 		collectionName string = "planets"
 	)
 
 	var client *mongo.Client
-	client, collection = dbConnect(databaseName, collectionName)
-	defer dbDisconnect(client)
+	client, collection = mongoDBConnect(host, port, databaseName, collectionName)
+	defer mongoDBDisconnect(client)
 
 	// planets = []Planet{
 	// 	Planet{ID: 0, Name: "Tatooine", Climate: "hot", Terrain: "sand"},
