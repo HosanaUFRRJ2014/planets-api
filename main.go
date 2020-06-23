@@ -31,23 +31,21 @@ var collection *mongo.Collection
 
 /* Database functions */
 
-func makeURI(host, port string) string {
-	driverName := "mongodb"
-	uri := driverName + "://" + host + ":" + port
+func makeURI(host, user, password, databaseName string) string {
+	//uri := driverName + "://" + host + ":" + port
+	//host := "planetsapi-6dhqu.gcp.mongodb.net"
+	uri := "mongodb+srv://" + user + ":" + password + "@" + host + "/" + databaseName + "?retryWrites=true&w=majority"
 
 	return uri
 }
 
-func mongoDBConnect(host, port, databaseName, collectionName string) (*mongo.Client, *mongo.Collection) {
-	uri := makeURI(host, port)
-	var clientOptions options.ClientOptions
-	client, error := mongo.NewClient(clientOptions.ApplyURI(uri))
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	error = client.Connect(ctx)
-
-	if error != nil {
-		log.Fatal(error)
-	}
+func mongoDBConnect(host, user, password, databaseName, collectionName string) (*mongo.Client, *mongo.Collection) {
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	uri := makeURI(host, user, password, databaseName)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	if err != nil { log.Fatal(err) }
 
 	collection := client.Database(databaseName).Collection(collectionName)
 	log.Print(
@@ -299,29 +297,16 @@ func handleRequests() {
 func main() {
 
 	var (
-		host           string = "localhost"
-		port           string = "27017"
-		databaseName   string = "apidb"
+		host string = "planetsapi-6dhqu.gcp.mongodb.net"
+		user string = "planetsapi"
+		password string = "940bf335-e572-496e-af0e-10ec3b9e1cd3"
+		databaseName string = "planetsapi"
 		collectionName string = "planets"
 	)
 
 	var client *mongo.Client
-	client, collection = mongoDBConnect(host, port, databaseName, collectionName)
+	client, collection = mongoDBConnect(host, user, password, databaseName, collectionName)
 	defer mongoDBDisconnect(client)
-
-	// planets = []Planet{
-	// 	Planet{ID: 0, Name: "Tatooine", Climate: "hot", Terrain: "sand"},
-	// 	Planet{ID: 1, Name: "Earth", Climate: "sunnie", Terrain: "rocks"},
-	// }
-
-	//	planets := ListPlanets()
-
-	//	fmt.Println(planets)
-
-	//p := Planet{3, "Mars", "hot", "rocks"}
-	//addNewPlanet(p)
-
-	//fmt.Println(planets)
 
 	handleRequests()
 }
