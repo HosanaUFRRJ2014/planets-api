@@ -105,7 +105,9 @@ func GetPlanetsFromDB() []Planet {
 			log.Fatal("Could not parse list of planets")
 		}
 
-		planets = append(planets, tempPlanet)
+		if ! tempPlanet.isEmpty() {
+			planets = append(planets, tempPlanet)
+		}
 	}
 
 	return planets
@@ -278,11 +280,17 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 func ListPlanets(writer http.ResponseWriter, request *http.Request) {
 	planets := getAllPlanets()
 
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "\t")
 	if len(planets) == 0 {
-		formatResponse(&writer, nil)
+		//formatResponse(&writer, nil)
+		empty := []int{}
+		encoder.Encode(empty)
 	} else {
-		formatResponse(&writer, planets)
+		//formatResponse(&writer, planets)
+		encoder.Encode(planets)
 	}
+
 }
 
 func GetByID(writer http.ResponseWriter, request *http.Request) {
