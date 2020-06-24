@@ -168,9 +168,11 @@ func RemovePlanetByParam(paramName string, value ...interface{}) bool {
 func capitalizeName(name string) string {
 	var capitalizedName string
 
-	capitalizedName = strings.ToTitle(
-		strings.ToLower(name),
-	)
+	if len(name) >= 1 {
+		capitalizedName = strings.ToUpper(name[0:1]) + strings.ToLower(name[1:])
+	} else {
+		capitalizedName = strings.ToUpper(name)
+	}
 
 	return capitalizedName
 }
