@@ -32,10 +32,7 @@ var collection *mongo.Collection
 /* Database functions */
 
 func makeURI(host, user, password, databaseName string) string {
-	//uri := driverName + "://" + host + ":" + port
-
 	uri := "mongodb+srv://" + user + ":" + password + "@" + host + "/" + databaseName + "?retryWrites=true&w=majority"
-
 	return uri
 }
 
@@ -45,7 +42,6 @@ func mongoDBConnect(host, user, password, databaseName, collectionName string) (
 	defer cancel()
 
 	uri := makeURI(host, user, password, databaseName)
-
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 
 	if err != nil {
@@ -188,7 +184,6 @@ func getAllPlanets() []Planet {
 //func SearchByParam(paramName string, value ...interface{}) []Planet {
 func SearchByParam(paramName string, value ...interface{}) Planet {
 	// Acess method from db given name and returns Planet. Case insensitive
-	//var data []Planet
 	var planet Planet
 	planet = SelectPlanetByParam(paramName, value[0])
 
@@ -239,7 +234,7 @@ func formatResponse(writer *http.ResponseWriter, data ...interface{}) {
 	if data[0] == nil{
 		//removes nil from response
 		data = data[:len(data)-1] 
-	} 
+	}
 	encoder.Encode(data)
 }
 
