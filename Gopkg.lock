@@ -22,8 +22,8 @@
 [[projects]]
   name = "github.com/klauspost/compress"
   packages = ["fse","huff0","snappy","zstd","zstd/internal/xxhash"]
-  revision = "418e7472c4dd2c344aa04672c5b2a5479f87e918"
-  version = "v1.10.8"
+  revision = "a8f778f32d263b3a95d1e5a90534f5f680560abe"
+  version = "v1.10.10"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -53,7 +53,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["pbkdf2"]
-  revision = "70a84ac30bf957c7df57edd1935d2081871515e1"
+  revision = "75b288015ac94e66e3d6715fb68a9b41bf046ec2"
 
 [[projects]]
   branch = "master"
@@ -64,12 +64,12 @@
 [[projects]]
   name = "golang.org/x/text"
   packages = ["internal/gen","internal/triegen","internal/ucd","transform","unicode/cldr","unicode/norm"]
-  revision = "342b2e1fbaa52c93f31447ad2c6abc048c63e475"
-  version = "v0.3.2"
+  revision = "23ae387dee1f90d29a23c0e87ee0b46038fbed0e"
+  version = "v0.3.3"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "78bdda11786ae34da00a9d0ca5788e43c416e4a2b4509b3d27e7cdef6d263e64"
+  inputs-digest = "297391bc5085f23029fdcf1c02d4af9b59230abd22bf07bc29e6a290f3d76715"
   solver-name = "gps-cdcl"
   solver-version = 1
