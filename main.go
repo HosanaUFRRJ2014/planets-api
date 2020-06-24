@@ -231,11 +231,19 @@ func formatResponse(writer *http.ResponseWriter, data ...interface{}) {
 	encoder := json.NewEncoder(*writer)
 	encoder.SetIndent("", "\t")
 
-	if data[0] == nil{
+	if data[0] == nil {
 		//removes nil from response
 		data = data[:len(data)-1] 
 	}
 	encoder.Encode(data)
+}
+
+func formatPlanetResponse(writer *http.ResponseWriter, planet Planet) {
+	if planet.isEmpty() {
+		formatResponse(writer, nil)
+	} else {
+		formatResponse(writer, planet)
+	}
 }
 
 /*API functions*/
@@ -278,11 +286,9 @@ func ListPlanets(writer http.ResponseWriter, request *http.Request) {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "\t")
 	if len(planets) == 0 {
-		//formatResponse(&writer, nil)
 		empty := []int{}
 		encoder.Encode(empty)
 	} else {
-		//formatResponse(&writer, planets)
 		encoder.Encode(planets)
 	}
 
@@ -293,12 +299,8 @@ func GetByID(writer http.ResponseWriter, request *http.Request) {
 	id := getByAttribute(param, request)
 	idAsInt := parseIDToInt64(id)
 	planet := SearchByParam(param, idAsInt)
-	
-	if planet.isEmpty() {
-		formatResponse(&writer, nil)
-	} else {
-		formatResponse(&writer, planet)
-	}
+
+	formatPlanetResponse(&writer, planet)
 
 }
 
@@ -308,11 +310,7 @@ func GetByName(writer http.ResponseWriter, request *http.Request) {
 	capitalizedName := capitalizeName(name)
 	planet := SearchByParam(param, capitalizedName)
 
-	if planet.isEmpty() {
-		formatResponse(&writer, nil)
-	} else {
-		formatResponse(&writer, planet)
-	}
+	formatPlanetResponse(&writer, planet)
 }
 
 func DeletePlanetByName(writer http.ResponseWriter, request *http.Request) {
