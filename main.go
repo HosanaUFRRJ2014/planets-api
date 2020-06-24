@@ -80,6 +80,31 @@ func InsertPlanet(newPlanet Planet) bool {
 	return created
 }
 
+func GetPlanetsFromDB() []Planet {
+	var planets [] Planet
+	emptyFilter := bson.D{{}}
+
+	cursor, err := collection.Find(context.TODO(), emptyFilter)
+	if err != nil {
+		log.Fatal(err)
+		log.Fatal("Error while retrieving all planets")
+	}
+
+	// Parsing list of planets
+	for cursor.Next(context.TODO()) {
+		var tempPlanet Planet
+		err := cursor.Decode(&tempPlanet)
+		if err != nil {
+			log.Fatal(err)
+			log.Fatal("Could not parse list of planets")
+		}
+
+		planets = append(planets, tempPlanet)
+	}
+
+	return planets
+}
+
 /*SelectPlanetByParam gets planets from database by paramName id or name */
 func SelectPlanetByParam(paramName string, paramValue ...interface{}) Planet {
 	if len(paramValue) != 1 {
@@ -137,10 +162,11 @@ func addNewPlanet(newPlanet Planet) bool {
 func getAllPlanets() []Planet {
 	// Retrieve all planets from database and returns it
 	var planets []Planet
-	//planets := GetPlanetsFromDB()
+	planets = GetPlanetsFromDB()
+	// TODO: Para cada planetadeve retornar também a quantidade de aparições
+	// em filmes
 
-	// Para cada planetadeve retornar também a quantidade de aparições em filmes
-	panic("getAllPlanets not implemented yet")
+
 	return planets
 }
 
@@ -286,7 +312,7 @@ func DeletePlanetByID(writer http.ResponseWriter, request *http.Request) {
 func handleRequests() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", APIHome)
-	router.HandleFunc("/planets", ListPlanets)
+	router.HandleFunc("/planets", ListPlanets).Methods("GET")
 	router.HandleFunc("/planet", CreateNewPlanet).Methods("POST")
 	router.HandleFunc("/planet/id/{id}", GetByID)
 	router.HandleFunc("/planet/name/{name}", GetByName)
