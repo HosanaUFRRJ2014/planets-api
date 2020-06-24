@@ -33,7 +33,7 @@ var collection *mongo.Collection
 
 func makeURI(host, user, password, databaseName string) string {
 	//uri := driverName + "://" + host + ":" + port
-	//host := "planetsapi-6dhqu.gcp.mongodb.net"
+
 	uri := "mongodb+srv://" + user + ":" + password + "@" + host + "/" + databaseName + "?retryWrites=true&w=majority"
 
 	return uri
@@ -43,15 +43,21 @@ func mongoDBConnect(host, user, password, databaseName, collectionName string) (
 	
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
 	uri := makeURI(host, user, password, databaseName)
+
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
-	if err != nil { log.Fatal(err) }
+
+	if err != nil {
+		log.Println("Could not connect to mongo db") 
+		log.Println(err)
+	}
 
 	collection := client.Database(databaseName).Collection(collectionName)
 	log.Print(
 		"Connected to Database: ", databaseName,
 		", collection: ", collectionName,
-		" at ", uri,
+		" at ", host,
 	)
 
 	return client, collection
@@ -113,31 +119,32 @@ func SelectPlanetByParam(paramName string, paramValue ...interface{}) Planet {
 	var planet Planet
 	value := paramValue[0]
 	filter := bson.D{{paramName, value}}
-
 	err := collection.FindOne(context.TODO(), filter).Decode(&planet)
 	if err != nil {
-		log.Fatal(err)
-		log.Fatal("Error while retrieving planet by", paramName, "=", paramValue)
+		log.Println(
+			"No planet found when", paramName, "=", value, "\n",
+			err,
+		)
 	}
-
 	return planet
 }
 
 /*DeletePlanetByParam delets a planet from database, informing a name or id*/
 func DeletePlanetByParam(paramName string, paramValue ...interface{}) bool {
 	if len(paramValue) != 1 {
-		panic("Please, inform just one parameter for SelectPlanetByParam")
+		panic("Please, inform just one parameter for DeletePlanetByParam")
 	}
-	deleted := true
+	var deleted bool
 	value := paramValue[0]
 	filter := bson.D{{paramName, value}}
 
-	_, err := collection.DeleteOne(context.TODO(), filter)
+	result, err := collection.DeleteOne(context.TODO(), filter)
 	if err != nil {
-		deleted = false
+
 		log.Fatal(err)
 		log.Fatal("Error while deleting planet with", paramName, "=", paramValue)
 	}
+	deleted = result.DeletedCount > 0
 	return deleted
 }
 
@@ -148,6 +155,12 @@ func (planet Planet) movieAppearenceCount() int {
 
 	return 0
 
+}
+
+/* Planet methods */
+
+func (planet Planet) isEmpty() bool {
+	return planet.ID == 0 && planet.Name == "";
 }
 
 /* Model Functions */
@@ -174,16 +187,16 @@ func getAllPlanets() []Planet {
 func SearchByParam(paramName string, value ...interface{}) Planet {
 	// Acess method from db given name and returns Planet. Case insensitive
 	//var data []Planet
-	var data Planet
-	data = SelectPlanetByParam(paramName, value)
+	var planet Planet
+	planet = SelectPlanetByParam(paramName, value[0])
 
-	return data
+	return planet
 }
 
 func RemovePlanetByParam(paramName string, value ...interface{}) bool {
 	// Removes a planet by id or name. If planet id not found, raises exception
 	//var planet Planet
-	removed := DeletePlanetByParam(paramName, value)
+	removed := DeletePlanetByParam(paramName, value[0])
 	//returns removed planet?
 
 	return removed
@@ -215,6 +228,17 @@ func parseIDToInt64(id string) int64 {
 	}
 
 	return idAsInt
+}
+
+func formatResponse(writer *http.ResponseWriter, data ...interface{}) {
+	encoder := json.NewEncoder(*writer)
+	encoder.SetIndent("", "\t")
+
+	if data[0] == nil{
+		//removes nil from response
+		data = data[:len(data)-1] 
+	} 
+	encoder.Encode(data)
 }
 
 /*API functions*/
@@ -254,20 +278,24 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 func ListPlanets(writer http.ResponseWriter, request *http.Request) {
 	planets := getAllPlanets()
 
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(planets)
+	if len(planets) == 0 {
+		formatResponse(&writer, nil)
+	} else {
+		formatResponse(&writer, planets)
+	}
 }
 
 func GetByID(writer http.ResponseWriter, request *http.Request) {
 	param := "id"
 	id := getByAttribute(param, request)
 	idAsInt := parseIDToInt64(id)
-	data := SearchByParam(param, idAsInt)
-
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(data)
+	planet := SearchByParam(param, idAsInt)
+	
+	if planet.isEmpty() {
+		formatResponse(&writer, nil)
+	} else {
+		formatResponse(&writer, planet)
+	}
 
 }
 
@@ -275,24 +303,23 @@ func GetByName(writer http.ResponseWriter, request *http.Request) {
 	param := "name"
 	name := getByAttribute(param, request)
 	capitalizedName := capitalizeName(name)
-	data := SearchByParam(param, capitalizedName)
+	planet := SearchByParam(param, capitalizedName)
 
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(data)
+	if planet.isEmpty() {
+		formatResponse(&writer, nil)
+	} else {
+		formatResponse(&writer, planet)
+	}
 }
 
 func DeletePlanetByName(writer http.ResponseWriter, request *http.Request) {
 	paramName := "name"
 	name := getByAttribute(paramName, request)
 	capitalizedName := capitalizeName(name)
+
 	deleted := RemovePlanetByParam(paramName, capitalizedName)
-
 	response := map[string]bool{"deleted": deleted}
-
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(response)
+	formatResponse(&writer, response)
 }
 
 func DeletePlanetByID(writer http.ResponseWriter, request *http.Request) {
@@ -301,12 +328,8 @@ func DeletePlanetByID(writer http.ResponseWriter, request *http.Request) {
 	idAsInt := parseIDToInt64(id)
 
 	deleted := RemovePlanetByParam(paramName, idAsInt)
-
 	response := map[string]bool{"deleted": deleted}
-
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(response)
+	formatResponse(&writer, response)
 }
 
 func handleRequests() {
@@ -314,9 +337,10 @@ func handleRequests() {
 	router.HandleFunc("/", APIHome)
 	router.HandleFunc("/planets", ListPlanets).Methods("GET")
 	router.HandleFunc("/planet", CreateNewPlanet).Methods("POST")
-	router.HandleFunc("/planet/id/{id}", GetByID)
-	router.HandleFunc("/planet/name/{name}", GetByName)
-	router.HandleFunc("/planet/{id}", DeletePlanetByID).Methods("DELETE")
+	router.HandleFunc("/planet/id/{id}", GetByID).Methods("GET")
+	router.HandleFunc("/planet/name/{name}", GetByName).Methods("GET")
+	router.HandleFunc("/planet/id/{id}", DeletePlanetByID).Methods("DELETE")
+	router.HandleFunc("/planet/name/{name}", DeletePlanetByName).Methods("DELETE")
 
 	log.Println("Listening at port 5555...")
 	log.Fatal(http.ListenAndServe(":5555", router))
@@ -333,7 +357,13 @@ func main() {
 	)
 
 	var client *mongo.Client
-	client, collection = mongoDBConnect(host, user, password, databaseName, collectionName)
+	client, collection = mongoDBConnect(
+		host,
+		user,
+		password,
+		databaseName,
+		collectionName,
+	)
 	defer mongoDBDisconnect(client)
 
 	handleRequests()
