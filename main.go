@@ -187,18 +187,15 @@ func (planet Planet) isEmpty() bool {
 	return planet.Name == "";
 }
 
-func (planet Planet) isEqual(otherPlanet Planet) bool {
-	//hasEqualID := planet.ID == otherPlanet.ID
-	hasEqualName := strings.ToLower(planet.Name) == strings.ToLower(planet.Name)
-
-	return hasEqualName 
-}
-
 /* Model Functions */
 
 func addNewPlanet(newPlanet Planet) bool {
-	//TODO: Check if planet is already in database
-	created := InsertPlanet(newPlanet)
+	
+	var created bool = false
+
+	if newPlanet.Name != "" {
+		created = InsertPlanet(newPlanet)
+	}
 
 	return created
 }
@@ -233,6 +230,14 @@ func RemovePlanetByParam(paramName string, value ...interface{}) bool {
 }
 
 /* API Utils*/
+
+/*Applies trim by space and capitalization*/
+func prepareString(name string) string {
+	trimmedName := strings.Trim(name, " ")
+	capitalizedName := capitalizeName(trimmedName)
+
+	return capitalizedName
+}
 
 func capitalizeName(name string) string {
 	var capitalizedName string
@@ -295,7 +300,8 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 
 	var newPlanet Planet
 	json.Unmarshal(body, &newPlanet)
-	newPlanet.Name = capitalizeName(newPlanet.Name)
+
+	newPlanet.Name = prepareString(newPlanet.Name)
 	created := addNewPlanet(newPlanet)
 
 	// TODO: Return new id and new created object?
