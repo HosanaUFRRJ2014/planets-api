@@ -45,7 +45,7 @@ type SWAPIPlanet struct {
 
 // TODO: Remove Global Vars
 var collection *mongo.Collection
-const PLANETS_SWAPI_URL string = "https://swapi.dev/api/planets"
+const PLANETS_SWAPI_URL string = "https://swapi.dev/api/planets/"
 
 /* Database functions */
 
@@ -292,7 +292,10 @@ func formatPlanetResponse(writer *http.ResponseWriter, planet Planet) {
 	}
 }
 
-func getSWAPIPage(url string) SWAPIResponse {
+func getSWAPIResponse(url, planetName string) SWAPIResponse {
+
+	searchParam := "?search=" + planetName
+	url = url + searchParam
 	response, err := http.Get(url)
 
 	if err != nil {
@@ -317,34 +320,17 @@ func GetAppearencesCountFromSWAPI(planetName string) (int, string) {
 	var appearencesCount int = 0
 	var planetURL string = ""
 	
-	responseObject := getSWAPIPage(PLANETS_SWAPI_URL)
+	responseObject := getSWAPIResponse(PLANETS_SWAPI_URL, planetName)
 
-	nextPageURL := responseObject.Next
-	found := false
-	// Looks for planet in planets until its appearence is found or until the
-	// end of the list of planets
-	for ;len(nextPageURL) > 0 && found == false; {
+	swapiPlanets := responseObject.Planets
 
-		planets := responseObject.Planets
-
-		for _, planet := range planets {
-			
-			if (planetName == planet.Name) {
-				films := planet.Films
-				if len(films) > 0 {
-					appearencesCount = len(films)
-				}
-				planetURL = planet.URL
-				found = true
-				break
-			}
+	if len(swapiPlanets) > 0 {
+		swapiPlanet := swapiPlanets[0]
+		films := swapiPlanet.Films
+		if len(films) > 0 {
+			appearencesCount = len(films)
 		}
-
-		// Go to next page if planet not found
-		if found == false {
-			responseObject = getSWAPIPage(nextPageURL)
-			nextPageURL = responseObject.Next
-		}
+		planetURL = swapiPlanet.URL
 
 	}
 
