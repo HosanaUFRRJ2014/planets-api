@@ -20,16 +20,32 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-/*Planet ... Saves planet data*/
+/*Planet ... Saves planet data in our API*/
 type Planet struct {
 	ID      primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Name    string `bson:"name" json:"name"`
 	Climate string `bson:"climate" json:"climate"`
 	Terrain string `bson:"terrain" json:"terrain"`
+	AppearencesCount int `bson:"appearencesCount" json:"appearencesCount"`
+	PlanetSwapiURL string `bson:"planetSwapiURL" json:"-"`
+}
+
+/*Structure of a response from SWAPI planets endpoint */
+type SWAPIResponse struct {
+	Next string `json:"next"`
+	Planets [] SWAPIPlanet `json:"results"`
+}
+
+/*Structure of planet from SWAPI that matters*/
+type SWAPIPlanet struct {
+	Name    string `json:"name"`
+	URL string `json:"url"`
+	Films [] string `json:"films"`
 }
 
 // TODO: Remove Global Vars
 var collection *mongo.Collection
+const PLANETS_SWAPI_URL string = "https://swapi.dev/api/planets"
 
 /* Database functions */
 
@@ -177,15 +193,6 @@ func DeletePlanetByParam(paramName string, paramValue ...interface{}) bool {
 	return deleted
 }
 
-// **
-func (planet Planet) movieAppearenceCount() int {
-	// Get data from https://swapi.dev/api/planets
-	// count movies appearence and return it
-
-	return 0
-
-}
-
 /* Planet methods */
 
 func (planet Planet) isEmpty() bool {
@@ -285,7 +292,64 @@ func formatPlanetResponse(writer *http.ResponseWriter, planet Planet) {
 	}
 }
 
+func getSWAPIPage(url string) SWAPIResponse {
+	response, err := http.Get(url)
+
+	if err != nil {
+		log.Println(err.Error())
+		log.Println("Error: Could not connect to SWAPI!")
+	}
+
+	responseData, err := ioutil.ReadAll(response.Body)
+    if err != nil {
+        log.Fatal(err.Error())
+	}
+	
+	var responseObject SWAPIResponse
+	json.Unmarshal(responseData, &responseObject)
+
+	return responseObject
+}
+
 /*API functions*/
+
+func GetAppearencesCountFromSWAPI(planetName string) (int, string) {
+	var appearencesCount int = 0
+	var planetURL string = ""
+	
+	responseObject := getSWAPIPage(PLANETS_SWAPI_URL)
+
+	nextPageURL := responseObject.Next
+	found := false
+	// Looks for planet in planets until its appearence is found or until the
+	// end of the list of planets
+	for ;len(nextPageURL) > 0 && found == false; {
+
+		planets := responseObject.Planets
+
+		for _, planet := range planets {
+			
+			if (planetName == planet.Name) {
+				films := planet.Films
+				if len(films) > 0 {
+					appearencesCount = len(films)
+				}
+				planetURL = planet.URL
+				found = true
+				break
+			}
+		}
+
+		// Go to next page if planet not found
+		if found == false {
+			responseObject = getSWAPIPage(nextPageURL)
+			nextPageURL = responseObject.Next
+		}
+
+	}
+
+	return appearencesCount, planetURL
+}
 
 func APIHome(writer http.ResponseWriter, request *http.Request) {
 	homeTemplate, _ := template.ParseFiles("home.html")
@@ -303,6 +367,14 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 	json.Unmarshal(body, &newPlanet)
 
 	newPlanet.Name = prepareString(newPlanet.Name)
+	// Get appearences count
+	appearencesCount, planetSwapiURL := GetAppearencesCountFromSWAPI(newPlanet.Name)
+
+	//Updates new planet with swapi information
+	newPlanet.AppearencesCount = appearencesCount
+	newPlanet.PlanetSwapiURL = planetSwapiURL
+
+	// Saving Planet
 	created := addNewPlanet(newPlanet)
 
 	// TODO: Return new id and new created object?
