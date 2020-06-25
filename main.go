@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -14,16 +15,17 @@ import (
 	"github.com/gorilla/mux"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 /*Planet ... Saves planet data*/
 type Planet struct {
-	ID      int64  `json:"id"`
-	Name    string `json:"name"`
-	Climate string `json:"climate"`
-	Terrain string `json:"terrain"`
+	ID      primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Name    string `bson:"name" json:"name"`
+	Climate string `bson:"climate" json:"climate"`
+	Terrain string `bson:"terrain" json:"terrain"`
 }
 
 // TODO: Remove Global Vars
@@ -69,16 +71,29 @@ func mongoDBDisconnect(client *mongo.Client) {
 	log.Print("Disconnecting from DB.")
 }
 
-/*InsertPlanet adds a new planet to the database. */
+/*InsertPlanet adds a new planet to the database. Ignores planets with the same name*/
 func InsertPlanet(newPlanet Planet) bool {
-	created := true
-	_, err := collection.InsertOne(context.TODO(), newPlanet)
+	var created bool
+	filter := bson.D{{"name", newPlanet.Name}}
+	
+	// If the a planet with the same name already exists, ignore insertion
+	var replaceOptions *options.ReplaceOptions = options.Replace()
+	replaceOptions.SetUpsert(true)
+
+	result , err := collection.ReplaceOne(
+		context.TODO(),
+		filter,
+		newPlanet,
+		replaceOptions,
+	)
 	//created := result.get("InsertedID")
 	if err != nil {
 		created = false
 		log.Fatal(err)
-		log.Fatal("Error while saving planet:", newPlanet.Name)
+		log.Fatal("Error while saving planet: ", newPlanet.Name)
 	}
+	log.Println("UpsertedID ID: ", result.UpsertedID)
+	created = result.UpsertedID != nil
 	return created
 }
 
@@ -116,6 +131,11 @@ func SelectPlanetByParam(paramName string, paramValue ...interface{}) Planet {
 	}
 	var planet Planet
 	value := paramValue[0]
+	if paramName == "id" {
+		paramName = "_id"
+		strValue := fmt.Sprintf("%v", value)
+		value, _ = primitive.ObjectIDFromHex(strValue)
+	}
 	filter := bson.D{{paramName, value}}
 	err := collection.FindOne(context.TODO(), filter).Decode(&planet)
 	if err != nil {
@@ -158,7 +178,14 @@ func (planet Planet) movieAppearenceCount() int {
 /* Planet methods */
 
 func (planet Planet) isEmpty() bool {
-	return planet.ID == 0 && planet.Name == "";
+	return planet.Name == "";
+}
+
+func (planet Planet) isEqual(otherPlanet Planet) bool {
+	//hasEqualID := planet.ID == otherPlanet.ID
+	hasEqualName := strings.ToLower(planet.Name) == strings.ToLower(planet.Name)
+
+	return hasEqualName 
 }
 
 /* Model Functions */
@@ -221,7 +248,7 @@ func getByAttribute(attributeName string, request *http.Request) string {
 func parseIDToInt64(id string) int64 {
 	idAsInt, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
-		log.Fatal("ID", id, "is not of type integer")
+		log.Fatal("ID ", id, " is not of type integer")
 	}
 
 	return idAsInt
@@ -297,8 +324,8 @@ func ListPlanets(writer http.ResponseWriter, request *http.Request) {
 func GetByID(writer http.ResponseWriter, request *http.Request) {
 	param := "id"
 	id := getByAttribute(param, request)
-	idAsInt := parseIDToInt64(id)
-	planet := SearchByParam(param, idAsInt)
+	//idAsInt := parseIDToInt64(id)
+	planet := SearchByParam(param, id)
 
 	formatPlanetResponse(&writer, planet)
 
@@ -326,9 +353,9 @@ func DeletePlanetByName(writer http.ResponseWriter, request *http.Request) {
 func DeletePlanetByID(writer http.ResponseWriter, request *http.Request) {
 	paramName := "id"
 	id := getByAttribute(paramName, request)
-	idAsInt := parseIDToInt64(id)
+	//idAsInt := parseIDToInt64(id)
 
-	deleted := RemovePlanetByParam(paramName, idAsInt)
+	deleted := RemovePlanetByParam(paramName, id)
 	response := map[string]bool{"deleted": deleted}
 	formatResponse(&writer, response)
 }
