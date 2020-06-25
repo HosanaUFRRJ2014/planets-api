@@ -160,6 +160,11 @@ func DeletePlanetByParam(paramName string, paramValue ...interface{}) bool {
 	}
 	var deleted bool
 	value := paramValue[0]
+	if paramName == "id" {
+		paramName = "_id"
+		strValue := fmt.Sprintf("%v", value)
+		value, _ = primitive.ObjectIDFromHex(strValue)
+	}
 	filter := bson.D{{paramName, value}}
 
 	result, err := collection.DeleteOne(context.TODO(), filter)
@@ -204,27 +209,23 @@ func getAllPlanets() []Planet {
 	// Retrieve all planets from database and returns it
 	var planets []Planet
 	planets = GetPlanetsFromDB()
-	// TODO: Para cada planetadeve retornar também a quantidade de aparições
-	// em filmes
-
 
 	return planets
 }
 
-//func SearchByParam(paramName string, value ...interface{}) []Planet {
+// Acess method from db given name and returns Planet. Case insensitive
 func SearchByParam(paramName string, value ...interface{}) Planet {
-	// Acess method from db given name and returns Planet. Case insensitive
 	var planet Planet
 	planet = SelectPlanetByParam(paramName, value[0])
 
 	return planet
 }
 
+// Removes a planet by id or name. If planet param not found, returns false
 func RemovePlanetByParam(paramName string, value ...interface{}) bool {
-	// Removes a planet by id or name. If planet id not found, raises exception
-	//var planet Planet
+
 	removed := DeletePlanetByParam(paramName, value[0])
-	//returns removed planet?
+	//TODO: returns removed planet?
 
 	return removed
 }
@@ -388,7 +389,7 @@ func handleRequests() {
 
 func main() {
 
-	var (
+	const (
 		host string = "planetsapi-6dhqu.gcp.mongodb.net"
 		user string = "planetsapi"
 		password string = "940bf335-e572-496e-af0e-10ec3b9e1cd3"
