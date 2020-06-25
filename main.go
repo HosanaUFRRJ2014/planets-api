@@ -52,6 +52,22 @@ func mongoDBConnect(host, user, password, databaseName, collectionName string) (
 	}
 
 	collection := client.Database(databaseName).Collection(collectionName)
+
+	// Ensure that two data keys cannot share the same name.
+	nameIndex := mongo.IndexModel{
+		Keys: bson.D{{"name", 1}},
+		Options: options.Index().
+			SetUnique(true).
+			SetPartialFilterExpression(bson.D{
+				{"name", bson.D{
+					{"$exists", true},
+				}},
+			}),
+	}
+	if _, err = collection.Indexes().CreateOne(context.TODO(), nameIndex); err != nil {
+		log.Println("Erro while saving duplicated planet. Ignoring")
+	}
+
 	log.Print(
 		"Connected to Database: ", databaseName,
 		", collection: ", collectionName,
@@ -74,26 +90,16 @@ func mongoDBDisconnect(client *mongo.Client) {
 /*InsertPlanet adds a new planet to the database. Ignores planets with the same name*/
 func InsertPlanet(newPlanet Planet) bool {
 	var created bool
-	filter := bson.D{{"name", newPlanet.Name}}
-	
-	// If the a planet with the same name already exists, ignore insertion
-	var replaceOptions *options.ReplaceOptions = options.Replace()
-	replaceOptions.SetUpsert(true)
+	result, err := collection.InsertOne(context.TODO(), newPlanet)
 
-	result , err := collection.ReplaceOne(
-		context.TODO(),
-		filter,
-		newPlanet,
-		replaceOptions,
-	)
-	//created := result.get("InsertedID")
 	if err != nil {
 		created = false
-		log.Fatal(err)
-		log.Fatal("Error while saving planet: ", newPlanet.Name)
+		//log.Println(err)
+		log.Println("Error while saving planet: ", newPlanet.Name)
+	} else {
+		created = result.InsertedID != nil
+		log.Println("InsertedID ID: ", result.InsertedID)
 	}
-	log.Println("UpsertedID ID: ", result.UpsertedID)
-	created = result.UpsertedID != nil
 	return created
 }
 
