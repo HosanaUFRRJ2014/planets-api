@@ -14,7 +14,8 @@ Star Wars Planets Golang API
 
 
 ## Usage:
-[TODO]
+
+Acess `/planets-api/home` and check the list what this API can do.
 
 ## Extras:
 ### Add More Dependencies:

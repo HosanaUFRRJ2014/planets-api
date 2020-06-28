@@ -1,16 +1,48 @@
 <html>
-    <header>
-        <h1>Welcome to Star Wars Planets API!</h1>
-    </header>
+    <head>
+        <link rel="stylesheet" type="text/css" href="style/css/apistyle.css">
+    </head>
     <body>
-        
+        <h1 class="api-title">Welcome to Star Wars Planets API!</h1>
+        <h2 class="api-subtitle">What you can do:</h2>
+        <div class="endpoints-list">
+            <div>
+                <p> List all registered planets </p> 
+                <div class="code">GET /planets</code> </div>
+            </div>
+            <div>
+                <p> Create a planet </p>
+                <div class="code">
+                    POST  /planet
+                
+                    <div class="code-sample">
+                        <p> Example: </p>
+                        {
+                            "name": "Tatooine",
+                            "terrain": "dessert",
+                            "climate": "arid"
+                        }
+                    </div>
+                        
+                </div>
+            </div>
+            <div>
+                <p> Search a planet by name </p>
+                <div class="code">GET  /planet/name/{NAME}</div>
+            </div>
+            <div>
+                <p> Search a planet by id </p>
+                <div class="code">GET  /planet/id/{ID}</div>
+            </div>
+            <div>
+                <p> Remove a planet by name </p>
+                <div class="code">DELETE  /planet/name/{NAME}</div>
+            </div>
+            <div>
+                <p> Remove a planet by id </p>
+                <div class="code">DELETE  /planet/id/{ID}</div>
+            </div>
 
-        <h2>What you can do:</h2>
-        <ul>
-            <li>
-                List all registered planets 
-                <a href="/planets">/planets</a>
-            </li>
-        </ul>
+        </div>
     </body>
 </html>
