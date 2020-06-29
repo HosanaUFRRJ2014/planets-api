@@ -1,0 +1,182 @@
+package model
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+
+/*Planet ... Saves planet data in our API*/
+type Planet struct {
+	ID      primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Name    string `bson:"name" json:"name"`
+	Climate string `bson:"climate" json:"climate"`
+	Terrain string `bson:"terrain" json:"terrain"`
+	AppearencesCount int `bson:"appearencesCount" json:"appearencesCount"`
+	PlanetSwapiURL string `bson:"planetSwapiURL" json:"-"`
+}
+
+
+/* Planet methods */
+
+func (planet Planet) IsEmpty() bool {
+	return planet.Name == "";
+}
+
+// TODO: Remove Global Vars
+var collection *mongo.Collection
+
+
+/* Database functions */
+
+func makeURI(host, user, password, databaseName string) string {
+	uri := "mongodb+srv://" + user + ":" + password + "@" + host + "/" + databaseName + "?retryWrites=true&w=majority"
+	return uri
+}
+
+func MongoDBConnect(host, user, password, databaseName, collectionName string) (*mongo.Client, /**mongo.Collection*/) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	uri := makeURI(host, user, password, databaseName)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+
+	if err != nil {
+		log.Println("Could not connect to mongo db") 
+		log.Println(err)
+	}
+
+	//collection := client.Database(databaseName).Collection(collectionName)
+	collection = client.Database(databaseName).Collection(collectionName)
+
+	// Ensure that two data keys cannot share the same name.
+	nameIndex := mongo.IndexModel{
+		Keys: bson.D{{"name", 1}},
+		Options: options.Index().
+			SetUnique(true).
+			SetPartialFilterExpression(bson.D{
+				{"name", bson.D{
+					{"$exists", true},
+				}},
+			}),
+	}
+	if _, err = collection.Indexes().CreateOne(context.TODO(), nameIndex); err != nil {
+		log.Println("Erro while saving duplicated planet. Ignoring")
+	}
+
+	log.Print(
+		"Connected to Database: ", databaseName,
+		", collection: ", collectionName,
+		" at ", host,
+	)
+
+	return client//, collection
+
+}
+
+func MongoDBDisconnect(client *mongo.Client) {
+	error := client.Disconnect(context.TODO())
+
+	if error != nil {
+		log.Fatal(error)
+	}
+	log.Print("Disconnecting from DB.")
+}
+
+/*InsertPlanet adds a new planet to the database. Ignores planets with the same name*/
+func InsertPlanet(newPlanet Planet) bool {
+	var created bool
+	result, err := collection.InsertOne(context.TODO(), newPlanet)
+
+	if err != nil {
+		created = false
+		//log.Println(err)
+		log.Println("Error while saving planet: ", newPlanet.Name)
+	} else {
+		created = result.InsertedID != nil
+		log.Println("InsertedID ID: ", result.InsertedID)
+	}
+	return created
+}
+
+func GetPlanetsFromDB() []Planet {
+	var planets [] Planet
+	emptyFilter := bson.D{{}}
+
+	cursor, err := collection.Find(context.TODO(), emptyFilter)
+	if err != nil {
+		log.Fatal(err)
+		log.Fatal("Error while retrieving all planets")
+	}
+
+	// Parsing list of planets
+	for cursor.Next(context.TODO()) {
+		var tempPlanet Planet
+		err := cursor.Decode(&tempPlanet)
+		if err != nil {
+			log.Fatal(err)
+			log.Fatal("Could not parse list of planets")
+		}
+
+		if ! tempPlanet.IsEmpty() {
+			planets = append(planets, tempPlanet)
+		}
+	}
+
+	return planets
+}
+
+/*SelectPlanetByParam gets planets from database by paramName id or name */
+func SelectPlanetByParam(paramName string, paramValue ...interface{}) Planet {
+	if len(paramValue) != 1 {
+		panic("Please, inform just one parameter for SelectPlanetByParam")
+	}
+	var planet Planet
+	value := paramValue[0]
+	if paramName == "id" {
+		paramName = "_id"
+		strValue := fmt.Sprintf("%v", value)
+		value, _ = primitive.ObjectIDFromHex(strValue)
+	}
+	filter := bson.D{{paramName, value}}
+	err := collection.FindOne(context.TODO(), filter).Decode(&planet)
+	if err != nil {
+		log.Println(
+			"No planet found when", paramName, "=", value, "\n",
+			err,
+		)
+	}
+	return planet
+}
+
+/*DeletePlanetByParam delets a planet from database, informing a name or id*/
+func DeletePlanetByParam(paramName string, paramValue ...interface{}) bool {
+	if len(paramValue) != 1 {
+		panic("Please, inform just one parameter for DeletePlanetByParam")
+	}
+	var deleted bool
+	value := paramValue[0]
+	if paramName == "id" {
+		paramName = "_id"
+		strValue := fmt.Sprintf("%v", value)
+		value, _ = primitive.ObjectIDFromHex(strValue)
+	}
+	filter := bson.D{{paramName, value}}
+
+	result, err := collection.DeleteOne(context.TODO(), filter)
+	if err != nil {
+
+		log.Fatal(err)
+		log.Fatal("Error while deleting planet with", paramName, "=", paramValue)
+	}
+	deleted = result.DeletedCount > 0
+	return deleted
+}
