@@ -191,7 +191,6 @@ func ListPlanets(writer http.ResponseWriter, request *http.Request) {
 }
 
 func GetByParam(writer http.ResponseWriter, request *http.Request) {
-	log.Println("Entrou em GetByParam")
 	var errorMessage string = ""
 	var retrievedPlanet model.Planet;
 	paramName, paramValue, errorMessage := getByAttribute(request)
@@ -211,7 +210,6 @@ func GetByParam(writer http.ResponseWriter, request *http.Request) {
 }
 
 func DeletePlanetByParam(writer http.ResponseWriter, request *http.Request) {
-	log.Println("Entrou em DeletePlanetByParam")
 	var errorMessage string = ""
 	var deleted bool = false
 	var response map[string]interface{}
@@ -241,7 +239,7 @@ func HandleRequests(host, port string) {
 	
 	apiRoot := "/planets/api"
 	
-	// Serve static Files under http://localhost:{PORT}/static/<filename>
+	// Serve static Files under http://{HOST}<:{PORT}>/static/<filename>
     router.PathPrefix(apiRoot + "/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
 
 	// Add routers

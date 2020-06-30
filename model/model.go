@@ -30,7 +30,6 @@ func (planet Planet) IsEmpty() bool {
 	return planet.Name == "";
 }
 
-// TODO: Remove Global Vars
 var collection *mongo.Collection
 
 
