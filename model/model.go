@@ -54,7 +54,6 @@ func MongoDBConnect(host, user, password, databaseName, collectionName string) (
 		log.Println(err)
 	}
 
-	//collection := client.Database(databaseName).Collection(collectionName)
 	collection = client.Database(databaseName).Collection(collectionName)
 
 	// Ensure that two data keys cannot share the same name.
@@ -92,19 +91,22 @@ func MongoDBDisconnect(client *mongo.Client) {
 }
 
 /*InsertPlanet adds a new planet to the database. Ignores planets with the same name*/
-func InsertPlanet(newPlanet Planet) bool {
-	var created bool
+func InsertPlanet(newPlanet Planet) (bool, string) {
+	var created bool = false
+	var errorMessage string = ""
 	result, err := collection.InsertOne(context.TODO(), newPlanet)
 
 	if err != nil {
 		created = false
-		//log.Println(err)
-		log.Println("Error while saving planet: ", newPlanet.Name)
+		log.Println("Error while saving planet: " + newPlanet.Name)
 	} else {
 		created = result.InsertedID != nil
-		log.Println("InsertedID ID: ", result.InsertedID)
+
 	}
-	return created
+	if !created {
+		errorMessage = "Planet " + newPlanet.Name + " already exists"
+	}
+	return created, errorMessage
 }
 
 func GetPlanetsFromDB() []Planet {
@@ -140,43 +142,55 @@ func SelectPlanetByParam(paramName string, paramValue ...interface{}) Planet {
 		panic("Please, inform just one parameter for SelectPlanetByParam")
 	}
 	var planet Planet
+	var dbParamName string
 	value := paramValue[0]
 	if paramName == "id" {
-		paramName = "_id"
+		dbParamName = "_id"
 		strValue := fmt.Sprintf("%v", value)
 		value, _ = primitive.ObjectIDFromHex(strValue)
+	} else {
+		dbParamName = paramName
 	}
-	filter := bson.D{{paramName, value}}
+	filter := bson.D{{dbParamName, value}}
 	err := collection.FindOne(context.TODO(), filter).Decode(&planet)
 	if err != nil {
 		log.Println(
-			"No planet found when", paramName, "=", value, "\n",
+			"Error while retrieving planet with " + paramName + " = " + paramValue[0].(string), "\n",
 			err,
 		)
 	}
+
 	return planet
 }
 
 /*DeletePlanetByParam delets a planet from database, informing a name or id*/
-func DeletePlanetByParam(paramName string, paramValue ...interface{}) bool {
+func DeletePlanetByParam(paramName string, paramValue ...interface{}) (bool, string) {
 	if len(paramValue) != 1 {
 		panic("Please, inform just one parameter for DeletePlanetByParam")
 	}
-	var deleted bool
+	var deleted bool = false
+	var errorMessage string = ""
+	var dbParamName string
 	value := paramValue[0]
 	if paramName == "id" {
-		paramName = "_id"
+		dbParamName = "_id"
 		strValue := fmt.Sprintf("%v", value)
 		value, _ = primitive.ObjectIDFromHex(strValue)
+	} else {
+		dbParamName = paramName
 	}
-	filter := bson.D{{paramName, value}}
+	filter := bson.D{{dbParamName, value}}
 
 	result, err := collection.DeleteOne(context.TODO(), filter)
 	if err != nil {
-
+		errorMessage = "Error while deleting planet with " + paramName + " = " + paramValue[0].(string)
 		log.Fatal(err)
-		log.Fatal("Error while deleting planet with", paramName, "=", paramValue)
+		log.Fatal(errorMessage)
+	} else {
+		deleted = result.DeletedCount > 0
+		if !deleted {
+			errorMessage = "Planet with " + paramName + " = " + paramValue[0].(string) + " not found"
+		}
 	}
-	deleted = result.DeletedCount > 0
-	return deleted
+	return deleted, errorMessage
 }

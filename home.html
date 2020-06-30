@@ -1,6 +1,6 @@
 <html>
     <head>
-        <link rel="stylesheet" type="text/css" href="static/css/apistyle.css">
+        <link rel="stylesheet" type="text/css" href="../static/css/apistyle.css">
     </head>
     <body>
         <h1 class="api-title">Welcome to Star Wars Planets API!</h1>
@@ -8,12 +8,12 @@
         <div class="endpoints-list">
             <div>
                 <p> List all registered planets </p> 
-                <div class="code">GET /planets</code> </div>
+                <div class="code">GET /planets/api/planets</code> </div>
             </div>
             <div>
                 <p> Create a planet </p>
                 <div class="code">
-                    POST  /planet
+                    POST  /planets/api/create
                 
                     <div class="code-sample">
                         <p> Example: </p>
@@ -28,19 +28,19 @@
             </div>
             <div>
                 <p> Search a planet by name </p>
-                <div class="code">GET  /planet/name/{NAME}</div>
+                <div class="code">GET  /planets/api/search?name={NAME}</div>
             </div>
             <div>
                 <p> Search a planet by id </p>
-                <div class="code">GET  /planet/id/{ID}</div>
+                <div class="code">GET  /planets/api/search?id={ID}</div>
             </div>
             <div>
                 <p> Remove a planet by name </p>
-                <div class="code">DELETE  /planet/name/{NAME}</div>
+                <div class="code">DELETE  /planets/api/delete?name={NAME}</div>
             </div>
             <div>
                 <p> Remove a planet by id </p>
-                <div class="code">DELETE  /planet/id/{ID}</div>
+                <div class="code">DELETE  /planets/api/delete?id={ID}</div>
             </div>
 
         </div>

@@ -29,5 +29,5 @@ func main() {
 	)
 	defer model.MongoDBDisconnect(client)
 
-	api.HandleRequests(port)
+	api.HandleRequests(host, port)
 }

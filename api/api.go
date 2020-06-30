@@ -8,9 +8,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
+
+	"fmt"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -33,40 +34,30 @@ type SWAPIPlanet struct {
 
 const PLANETS_SWAPI_URL string = "https://swapi.dev/api/planets/"
 
+var ERROR_MESSAGES = map[string]string{
+	"WRONG_PARAMS": "Query param is invalid. Valid options: ?id= , ?name= ",
+	//""
+}
+
+
 /* API Utils*/
-
-/*Applies trim by space and capitalization*/
-func prepareString(name string) string {
-	trimmedName := strings.Trim(name, " ")
-	capitalizedName := capitalizeName(trimmedName)
-
-	return capitalizedName
-}
-
-func capitalizeName(name string) string {
-	var capitalizedName string
-
-	if len(name) >= 1 {
-		capitalizedName = strings.ToUpper(name[0:1]) + strings.ToLower(name[1:])
-	} else {
-		capitalizedName = strings.ToUpper(name)
-	}
-
-	return capitalizedName
-}
-
-func getByAttribute(attributeName string, request *http.Request) string {
+func getByAttribute(request *http.Request) (string, string, string) {
 	variables := mux.Vars(request)
-	return variables[attributeName]
-}
+	var errorMessage string = ""
 
-func parseIDToInt64(id string) int64 {
-	idAsInt, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		log.Fatal("ID ", id, " is not of type integer")
+	paramName := "name"
+	paramValue, ok := variables["name"]
+
+	if !ok {
+		paramValue, ok = variables["id"]
+		paramName = "id"
 	}
 
-	return idAsInt
+	if !ok {
+		errorMessage = "Query param is invalid. Valid options: ?id= , ?name= "
+	}
+
+	return paramName, paramValue, errorMessage
 }
 
 func formatResponse(writer *http.ResponseWriter, data ...interface{}) {
@@ -134,7 +125,12 @@ func getAppearencesCountFromSWAPI(planetName string) (int, string) {
 }
 
 func APIHome(writer http.ResponseWriter, request *http.Request) {
-	homeTemplate, _ := template.ParseFiles("home.html", "static/css/apistyle.css")
+	homeTemplate, error := template.ParseFiles("home.html", "static/css/apistyle.css")
+	
+	if error != nil {
+		panic(error)
+	}
+	
 	homeTemplate.ExecuteTemplate(writer, "home.html", nil)
 }
 
@@ -142,33 +138,39 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 	body, err := ioutil.ReadAll(request.Body)
 	if err != nil {
 		log.Fatal("Could not read body for request")
-		panic(err)
 	}
 
 	var newPlanet model.Planet
+	var created bool = false
+	var errorMessage string = ""
+	var response map[string]interface{}
 	json.Unmarshal(body, &newPlanet)
 
-	newPlanet.Name = prepareString(newPlanet.Name)
-	// Get appearences count
-	appearencesCount, planetSwapiURL := getAppearencesCountFromSWAPI(newPlanet.Name)
+	newPlanet.Name, errorMessage = planet.PrepareString(newPlanet.Name)
 
-	//Updates new planet with swapi information
-	newPlanet.AppearencesCount = appearencesCount
-	newPlanet.PlanetSwapiURL = planetSwapiURL
-
-	// Saving Planet
-	created := planet.AddNewPlanet(newPlanet)
+	if errorMessage == "" {
+		// Get appearences count
+		appearencesCount, planetSwapiURL := getAppearencesCountFromSWAPI(newPlanet.Name)
+	
+		//Updates new planet with swapi information
+		newPlanet.AppearencesCount = appearencesCount
+		newPlanet.PlanetSwapiURL = planetSwapiURL
+	
+		// Saving Planet
+		created, errorMessage = planet.AddNewPlanet(newPlanet)
+	}
 
 	// TODO: Return new id and new created object?
-	response := map[string]bool{"created": created}
 
 	writer.Header().Set("Content-Type", "application/json; charset=UTF-8")
-
 	if created {
+		response = map[string]interface{}{"created": created}
 		writer.WriteHeader(http.StatusCreated)
 	} else {
+		response = map[string]interface{}{"created": created, "error": errorMessage}
 		writer.WriteHeader(http.StatusBadRequest)
 	}
+
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "\t")
 	encoder.Encode(response)
@@ -188,45 +190,48 @@ func ListPlanets(writer http.ResponseWriter, request *http.Request) {
 
 }
 
-func GetByID(writer http.ResponseWriter, request *http.Request) {
-	param := "id"
-	id := getByAttribute(param, request)
+func GetByParam(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Entrou em GetByParam")
+	var errorMessage string = ""
+	var retrievedPlanet model.Planet;
+	paramName, paramValue, errorMessage := getByAttribute(request)
 
-	planet := planet.SearchByParam(param, id)
+	if errorMessage == "" {
+		retrievedPlanet, errorMessage = planet.SearchByParam(paramName, paramValue)
 
-	formatPlanetResponse(&writer, planet)
-
+		if errorMessage == "" {
+			formatPlanetResponse(&writer, retrievedPlanet)
+		}
+	} 
+	
+	if len(errorMessage) > 0 {
+		response := map[string]string{"error": errorMessage}
+		formatResponse(&writer, response)
+	}
 }
 
-func GetByName(writer http.ResponseWriter, request *http.Request) {
-	param := "name"
-	name := getByAttribute(param, request)
-	capitalizedName := capitalizeName(name)
-	planet := planet.SearchByParam(param, capitalizedName)
+func DeletePlanetByParam(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Entrou em DeletePlanetByParam")
+	var errorMessage string = ""
+	var deleted bool = false
+	var response map[string]interface{}
+ 
+	paramName, paramValue, errorMessage := getByAttribute(request)
 
-	formatPlanetResponse(&writer, planet)
-}
+	if errorMessage == "" {
+		deleted, errorMessage = planet.RemovePlanetByParam(paramName, paramValue)
+	} 
 
-func DeletePlanetByName(writer http.ResponseWriter, request *http.Request) {
-	paramName := "name"
-	name := getByAttribute(paramName, request)
-	capitalizedName := capitalizeName(name)
+	if deleted {
+		response = map[string]interface{}{"deleted": deleted}
+	} else {
+		response = map[string]interface{}{"error": errorMessage, "deleted": deleted}
+	}
 
-	deleted := planet.RemovePlanetByParam(paramName, capitalizedName)
-	response := map[string]bool{"deleted": deleted}
 	formatResponse(&writer, response)
 }
 
-func DeletePlanetByID(writer http.ResponseWriter, request *http.Request) {
-	paramName := "id"
-	id := getByAttribute(paramName, request)
-
-	deleted := planet.RemovePlanetByParam(paramName, id)
-	response := map[string]bool{"deleted": deleted}
-	formatResponse(&writer, response)
-}
-
-func HandleRequests(port string) {
+func HandleRequests(host, port string) {
 	var dir string
 	flag.StringVar(&dir, ".", "static/", "")
     flag.Parse()
@@ -234,20 +239,57 @@ func HandleRequests(port string) {
 	// Create the router
 	router := mux.NewRouter().StrictSlash(true)
 	
+	apiRoot := "/planets/api"
+	
 	// Serve static Files under http://localhost:{PORT}/static/<filename>
-    router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
+    router.PathPrefix(apiRoot + "/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
 
 	// Add routers
 	router.HandleFunc("/", APIHome)
-	router.HandleFunc("/planets", ListPlanets).Methods("GET")
-	router.HandleFunc("/planet", CreateNewPlanet).Methods("POST")
-	router.HandleFunc("/planet/id/{id}", GetByID).Methods("GET")
-	router.HandleFunc("/planet/name/{name}", GetByName).Methods("GET")
-	router.HandleFunc("/planet/id/{id}", DeletePlanetByID).Methods("DELETE")
-	router.HandleFunc("/planet/name/{name}", DeletePlanetByName).Methods("DELETE")
+	router.HandleFunc(apiRoot, APIHome)
+	router.HandleFunc(apiRoot + "/planets", ListPlanets).Methods("GET")
+	router.HandleFunc(apiRoot  + "/create", CreateNewPlanet).Methods("POST")
+	router.Path(apiRoot + "/search").Queries("id", "{id}").HandlerFunc(GetByParam).Name("Search").Methods("GET")
+	router.Path(apiRoot +  "/search").Queries("name", "{name}").HandlerFunc(GetByParam).Name("Search").Methods("GET")
+	router.Path(apiRoot + "/delete").Queries("id", "{id}").HandlerFunc(DeletePlanetByParam).Name("Delete").Methods("DELETE")
+	router.Path(apiRoot + "/delete").Queries("name", "{name}").HandlerFunc(DeletePlanetByParam).Name("Delete").Methods("DELETE")
 
+	// List all paths
+	err := router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		pathTemplate, err := route.GetPathTemplate()
+		if err == nil {
+			fmt.Println("ROUTE:", pathTemplate)
+		}
+		pathRegexp, err := route.GetPathRegexp()
+		if err == nil {
+			fmt.Println("Path regexp:", pathRegexp)
+		}
+		queriesTemplates, err := route.GetQueriesTemplates()
+		if err == nil {
+			fmt.Println("Queries templates:", strings.Join(queriesTemplates, ","))
+		}
+		queriesRegexps, err := route.GetQueriesRegexp()
+		if err == nil {
+			fmt.Println("Queries regexps:", strings.Join(queriesRegexps, ","))
+		}
+		methods, err := route.GetMethods()
+		if err == nil {
+			fmt.Println("Methods:", strings.Join(methods, ","))
+		}
+		fmt.Println()
+		return nil
+	})
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	http.Handle("/", router)
 	
-	address := "127.0.0.1:" + port
+	address := host
+	if len(port) > 0 {
+		address = address + ":" + port
+	}
 	service := &http.Server{
 		Handler:      router,
         Addr:         address,
@@ -256,6 +298,6 @@ func HandleRequests(port string) {
         ReadTimeout:  15 * time.Second,
 	}
 	
-	log.Println("Listening at port", port, "...")
+	log.Println("Listening at host", host,  ", port", port, "...")
 	log.Fatal(service.ListenAndServe())
 }
