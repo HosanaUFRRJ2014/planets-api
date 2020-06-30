@@ -173,7 +173,7 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "\t")
-	encoder.Encode(response)
+	encoder.Encode([1]map[string]interface{}{response})
 }
 
 func ListPlanets(writer http.ResponseWriter, request *http.Request) {
