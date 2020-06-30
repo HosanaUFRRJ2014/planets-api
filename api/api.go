@@ -125,12 +125,15 @@ func getAppearencesCountFromSWAPI(planetName string) (int, string) {
 }
 
 func APIHome(writer http.ResponseWriter, request *http.Request) {
-	homeTemplate, error := template.ParseFiles("home.html", "static/css/apistyle.css")
+	homeTemplate, error := template.ParseFiles(
+		"static/home.html",
+		"static/css/apistyle.css",
+	)
 	
 	if error != nil {
 		panic(error)
 	}
-	
+
 	homeTemplate.ExecuteTemplate(writer, "home.html", nil)
 }
 
@@ -239,8 +242,8 @@ func HandleRequests(host, port string) {
 	
 	apiRoot := "/planets/api"
 	
-	// Serve static Files under http://{HOST}<:{PORT}>/static/<filename>
-    router.PathPrefix(apiRoot + "/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
+	// Serve static Files under http://{HOST}/static/<filename>
+    router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
 
 	// Add routers
 	router.HandleFunc("/", APIHome)

@@ -9,7 +9,7 @@ func main() {
 
 	const (
 		// API configs
-		host string = "localhost"
+		host string = "127.0.0.1"
 		port string = "5555"
 
 		// Database configs
