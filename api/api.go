@@ -9,8 +9,6 @@ import (
 	"log"
 	"net/http"
 	"time"
-
-	"fmt"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -33,11 +31,6 @@ type SWAPIPlanet struct {
 }
 
 const PLANETS_SWAPI_URL string = "https://swapi.dev/api/planets/"
-
-var ERROR_MESSAGES = map[string]string{
-	"WRONG_PARAMS": "Query param is invalid. Valid options: ?id= , ?name= ",
-	//""
-}
 
 
 /* API Utils*/
