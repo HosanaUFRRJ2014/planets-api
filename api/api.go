@@ -101,6 +101,40 @@ func getSWAPIResponse(url, planetName string) SWAPIResponse {
 	return responseObject
 }
 
+func listAPIPaths(router * mux.Router)  {
+	// List all paths
+	err := router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		pathTemplate, err := route.GetPathTemplate()
+		if err == nil {
+			log.Println("ROUTE:", pathTemplate)
+		}
+		pathRegexp, err := route.GetPathRegexp()
+		if err == nil {
+			log.Println("Path regexp:", pathRegexp)
+		}
+		queriesTemplates, err := route.GetQueriesTemplates()
+		if err == nil {
+			log.Println("Queries templates: ", strings.Join(queriesTemplates, ","))
+		}
+		queriesRegexps, err := route.GetQueriesRegexp()
+		if err == nil {
+			log.Println("Queries regexps:", strings.Join(queriesRegexps, ","))
+		}
+		methods, err := route.GetMethods()
+		if err == nil {
+			log.Println("Methods:", strings.Join(methods, ","))
+		}
+		log.Println()
+		return nil
+	})
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	http.Handle("/", router)
+}
+
 /*API functions*/
 
 func getAppearencesCountFromSWAPI(planetName string) (int, string) {
@@ -255,37 +289,8 @@ func HandleRequests(host, port string) {
 	router.Path(apiRoot + "/delete").Queries("id", "{id}").HandlerFunc(DeletePlanetByParam).Name("Delete").Methods("DELETE")
 	router.Path(apiRoot + "/delete").Queries("name", "{name}").HandlerFunc(DeletePlanetByParam).Name("Delete").Methods("DELETE")
 
-	// List all paths
-	err := router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
-		pathTemplate, err := route.GetPathTemplate()
-		if err == nil {
-			fmt.Println("ROUTE:", pathTemplate)
-		}
-		pathRegexp, err := route.GetPathRegexp()
-		if err == nil {
-			fmt.Println("Path regexp:", pathRegexp)
-		}
-		queriesTemplates, err := route.GetQueriesTemplates()
-		if err == nil {
-			fmt.Println("Queries templates:", strings.Join(queriesTemplates, ","))
-		}
-		queriesRegexps, err := route.GetQueriesRegexp()
-		if err == nil {
-			fmt.Println("Queries regexps:", strings.Join(queriesRegexps, ","))
-		}
-		methods, err := route.GetMethods()
-		if err == nil {
-			fmt.Println("Methods:", strings.Join(methods, ","))
-		}
-		fmt.Println()
-		return nil
-	})
-
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	http.Handle("/", router)
+	//List all API Paths
+	listAPIPaths(router)
 	
 	address := host
 	if len(port) > 0 {
