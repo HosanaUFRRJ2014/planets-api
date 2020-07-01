@@ -1,6 +1,7 @@
 # planets-api
 Star Wars Planets Golang API
 
+[Trello for this board (In Portuguese)](https://trello.com/b/WWVcIcWl/api-planetas)
 
 ## Requirements:
     
