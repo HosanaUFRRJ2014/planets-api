@@ -154,7 +154,7 @@ func getAppearencesCountFromSWAPI(planetName string) (int, string) {
 func APIHome(writer http.ResponseWriter, request *http.Request) {
 	homeTemplate, error := template.ParseFiles(
 		"static/home.html",
-		"static/css/apistyle.css",
+		"static/css/style.css",
 	)
 	
 	if error != nil {
