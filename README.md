@@ -40,7 +40,7 @@ or
 
     ./main
 
-Access `localhost:5555/planets/api` and check the list what this API can do.
+Access `localhost:5555/planets/api` and check the list of what this API can do.
 
 ## Extras:
 ### Configuring API's port:
