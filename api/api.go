@@ -191,8 +191,6 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 		created, planetUUID, errorMessage = planet.AddNewPlanet(newPlanet)
 	}
 
-	// TODO: Return new id and new created object?
-
 	writer.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if created {
 		response = map[string]interface{}{"created": created, "id": planetUUID}

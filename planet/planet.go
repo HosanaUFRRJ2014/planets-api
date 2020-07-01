@@ -96,7 +96,6 @@ func RemovePlanetByParam(paramName string, value ...interface{}) (bool, string) 
 	if errorMessage == "" {
 		removed, errorMessage = model.DeletePlanetByParam(paramName, removableValue)
 	}
-	//TODO: returns removed planet?
 
 	return removed, errorMessage
 }
