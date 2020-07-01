@@ -1,0 +1,19 @@
+# Use root/example as user/password credentials
+version: '3.1'
+
+services:
+
+  mongo:
+    container_name: "mongodb"
+    image: mongo:latest
+    restart: always
+    ports:
+      - 27017:27017
+    volumes:
+      - ./data/db:/var/mongodb/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=planetsapi
+      - MONGO_INITDB_ROOT_PASSWORD=e5e66467-8b00-421a-af8c-00a08e038f04
+      - MONGO_INITDB_DATABASE=planets
+      - MONGODB_USERNAME=planetsapi
+      - MONGODB_PASSWORD=e5e66467-8b00-421a-af8c-00a08e038f04

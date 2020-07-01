@@ -35,25 +35,31 @@ var collection *mongo.Collection
 
 /* Database functions */
 
-func makeURI(host, user, password, databaseName string) string {
-	uri := "mongodb+srv://" + user + ":" + password + "@" + host + "/" + databaseName + "?retryWrites=true&w=majority"
+func makeURI(host, port, databaseName string) string {
+	uri := "mongodb" + "://" + host + ":" + port + "/" + databaseName + "?retryWrites=true&w=majority"
 	return uri
 }
 
-func MongoDBConnect(host, user, password, databaseName, collectionName string) (*mongo.Client, /**mongo.Collection*/) {
+func MongoDBConnect(host, port, user, password, databaseName, collectionName string) (*mongo.Client, /**mongo.Collection*/) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	uri := makeURI(host, user, password, databaseName)
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	credential := options.Credential{
+		Username: user,
+		Password: password,
+		AuthMechanism: "",
+	}
+	uri := makeURI(host, port, databaseName)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri).SetAuth(credential))
 
 	if err != nil {
 		log.Println("Could not connect to mongo db") 
 		log.Println(err)
 	}
 
-	collection = client.Database(databaseName).Collection(collectionName)
+	database := client.Database(databaseName)
+	collection = database.Collection(collectionName)
 
 	// Ensure that two data keys cannot share the same name.
 	nameIndex := mongo.IndexModel{
