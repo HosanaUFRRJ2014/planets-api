@@ -42,6 +42,8 @@ or
 
 Access `localhost:5555/planets/api` and check the list of what this API can do.
 
+You can import [this Postman project](./API-Planets.postman_collection.json) for api samples
+
 ## Extras:
 ### Configuring API's port:
 The default API port is 5555, but you may want to run it in a diferent one.
