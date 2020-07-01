@@ -96,22 +96,24 @@ func MongoDBDisconnect(client *mongo.Client) {
 }
 
 /*InsertPlanet adds a new planet to the database. Ignores planets with the same name*/
-func InsertPlanet(newPlanet Planet) (bool, string) {
+func InsertPlanet(newPlanet Planet) (bool, string, string) {
 	var created bool = false
 	var errorMessage string = ""
+	var planetUUID string
 	result, err := collection.InsertOne(context.TODO(), newPlanet)
-
+	
 	if err != nil {
 		created = false
 		log.Println("Error while saving planet: " + newPlanet.Name)
 	} else {
 		created = result.InsertedID != nil
-
+		planetUUID = result.InsertedID.(primitive.ObjectID).Hex()
 	}
 	if !created {
 		errorMessage = "Planet " + newPlanet.Name + " already exists"
 	}
-	return created, errorMessage
+
+	return created, planetUUID, errorMessage
 }
 
 func GetPlanetsFromDB() []Planet {

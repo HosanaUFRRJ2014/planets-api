@@ -49,20 +49,21 @@ func PrepareString(name string) (string, string) {
 /* Functions */
 
 /*Creates new planet*/
-func AddNewPlanet(newPlanet model.Planet) (bool, string) {
+func AddNewPlanet(newPlanet model.Planet) (bool, string, string) {
 	
 	var created bool = false
 	var errorMessage string = ""
+	var planetUUID string
 
 	if !newPlanet.IsEmpty() {
 		newPlanet.Name, errorMessage = PrepareString(newPlanet.Name)
 
 		if errorMessage == "" {
-			created, errorMessage = model.InsertPlanet(newPlanet)
+			created,  planetUUID, errorMessage = model.InsertPlanet(newPlanet)
 		}
 	}
 
-	return created, errorMessage
+	return created, planetUUID, errorMessage
 }
 
 /* Retrieve all planets from database and returns it*/

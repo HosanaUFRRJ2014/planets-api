@@ -172,6 +172,7 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 
 	var newPlanet model.Planet
 	var created bool = false
+	var planetUUID string
 	var errorMessage string = ""
 	var response map[string]interface{}
 	json.Unmarshal(body, &newPlanet)
@@ -187,14 +188,14 @@ func CreateNewPlanet(writer http.ResponseWriter, request *http.Request) {
 		newPlanet.PlanetSwapiURL = planetSwapiURL
 	
 		// Saving Planet
-		created, errorMessage = planet.AddNewPlanet(newPlanet)
+		created, planetUUID, errorMessage = planet.AddNewPlanet(newPlanet)
 	}
 
 	// TODO: Return new id and new created object?
 
 	writer.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if created {
-		response = map[string]interface{}{"created": created}
+		response = map[string]interface{}{"created": created, "id": planetUUID}
 		writer.WriteHeader(http.StatusCreated)
 	} else {
 		response = map[string]interface{}{"created": created, "error": errorMessage}
